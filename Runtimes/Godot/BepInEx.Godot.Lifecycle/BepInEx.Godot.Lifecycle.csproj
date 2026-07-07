@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Engine-facing core layer: references GodotSharp. Its floor is set by GodotSharp itself,
+         NOT by BepInEx: Godot 4.7's GodotSharp targets net8.0 (it uses System.Runtime 8.0), so any
+         assembly referencing the Godot API must be net8.0+. The generic preloader, which touches
+         no engine type, stays at net6.0. GodotSharp resolves from the game's own copy at runtime
+         (it is on the CoreCLR TPA list). -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>BepInEx.Godot.Lifecycle</AssemblyName>
+    <RootNamespace>BepInEx.Godot</RootNamespace>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <GodotSharpDll Condition="'$(GodotSharpDll)' == ''">$(MSBuildProjectDirectory)/GodotSharp.dll</GodotSharpDll>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="GodotSharp">
+      <HintPath>$(GodotSharpDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

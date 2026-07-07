@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- Low framework floor: the injected code references no engine-version-specific
+         assembly, so a single net6.0 build forward-loads into any Godot 4 .NET game
+         (net6 was Godot 4.0's minimum) through net10+. The preloader only needs >= net5
+         for [UnmanagedCallersOnly]. -->
+    <TargetFramework>net6.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>BepInEx.Godot.Preloader</AssemblyName>
+    <RootNamespace>BepInEx.Godot</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Godot backend rides only the runtime-agnostic BepInEx core (BaseChainloader,
+         BasePlugin plumbing, Paths, logging, config) — not the generic .NET backend. -->
+    <ProjectReference Include="../../../BepInEx.Core/BepInEx.Core.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <ProjectReference Include="../../../BepInEx.Preloader.Core/BepInEx.Preloader.Core.csproj" SetTargetFramework="TargetFramework=netstandard2.0" />
+    <PackageReference Include="HarmonyX" Version="2.16.1" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,3 @@
+[submodule "Runtimes/Godot/Doorstop"]
+	path = Runtimes/Godot/Doorstop
+	url = https://github.com/xiaoxiao921/GodotDoorstop.git
