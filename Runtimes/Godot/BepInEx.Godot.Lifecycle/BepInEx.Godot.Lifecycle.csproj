@@ -19,5 +19,8 @@
       <HintPath>$(GodotSharpDll)</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- HarmonyX at runtime resolves to the single 0Harmony.dll in BepInEx/core (Private=false),
+         so the scene-tree hook shares the same Harmony as the loader and plugins. -->
+    <PackageReference Include="HarmonyX" Version="2.16.1" Private="false" />
   </ItemGroup>
 </Project>
