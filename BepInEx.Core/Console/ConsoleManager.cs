@@ -1,10 +1,10 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using BepInEx.Configuration;
 using BepInEx.Unix;
-using MonoMod.Utils;
 
 namespace BepInEx;
 
@@ -96,13 +96,14 @@ public static class ConsoleManager
 
     public static void Initialize(bool alreadyActive, bool useManagedEncoder)
     {
-        if (PlatformHelper.Is(Platform.Unix))
-            Driver = new LinuxConsoleDriver();
-        else if (PlatformHelper.Is(Platform.Windows))
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             Driver = new WindowsConsoleDriver();
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            Driver = new LinuxConsoleDriver();
         else
             throw new PlatformNotSupportedException("Was unable to determine console driver for platform " +
-                                                    PlatformHelper.Current);
+                                                    RuntimeInformation.OSDescription);
 
         Driver.Initialize(alreadyActive, useManagedEncoder);
     }

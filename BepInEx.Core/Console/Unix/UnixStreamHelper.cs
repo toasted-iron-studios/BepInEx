@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using MonoMod.Utils;
+using System.Runtime.InteropServices;
 
 namespace BepInEx.Unix;
 
@@ -21,41 +20,40 @@ internal static class UnixStreamHelper
 
     public delegate int isattyDelegate(int fd);
 
-    [DynDllImport("libc")]
-    public static dupDelegate dup;
+    // MonoMod's DynDllImport was removed in MonoMod 25.x. On CoreCLR the runtime
+    // resolves the bare "libc" name to the platform C library (libc.so.6 on Linux,
+    // libSystem.dylib on macOS) via its own name mangling, so plain P/Invoke covers
+    // the same targets the old DynDllMapping list did.
+    private const string Libc = "libc";
 
-    [DynDllImport("libc")]
-    public static fdopenDelegate fdopen;
+    [DllImport(Libc, EntryPoint = "dup")]
+    private static extern int dup_native(int fd);
 
-    [DynDllImport("libc")]
-    public static freadDelegate fread;
+    [DllImport(Libc, EntryPoint = "fdopen")]
+    private static extern IntPtr fdopen_native(int fd, string mode);
 
-    [DynDllImport("libc")]
-    public static fwriteDelegate fwrite;
+    [DllImport(Libc, EntryPoint = "fread")]
+    private static extern IntPtr fread_native(IntPtr ptr, IntPtr size, IntPtr nmemb, IntPtr stream);
 
-    [DynDllImport("libc")]
-    public static fcloseDelegate fclose;
+    [DllImport(Libc, EntryPoint = "fwrite")]
+    private static extern int fwrite_native(IntPtr ptr, IntPtr size, IntPtr nmemb, IntPtr stream);
 
-    [DynDllImport("libc")]
-    public static fflushDelegate fflush;
+    [DllImport(Libc, EntryPoint = "fclose")]
+    private static extern int fclose_native(IntPtr stream);
 
-    [DynDllImport("libc")]
-    public static isattyDelegate isatty;
+    [DllImport(Libc, EntryPoint = "fflush")]
+    private static extern int fflush_native(IntPtr stream);
 
-    static UnixStreamHelper()
-    {
-        var libcMapping = new Dictionary<string, List<DynDllMapping>>
-        {
-            ["libc"] = new()
-            {
-                "libc.so.6",               // Ubuntu glibc
-                "libc",                    // Linux glibc
-                "/usr/lib/libSystem.dylib" // OSX POSIX
-            }
-        };
+    [DllImport(Libc, EntryPoint = "isatty")]
+    private static extern int isatty_native(int fd);
 
-        typeof(UnixStreamHelper).ResolveDynDllImports(libcMapping);
-    }
+    public static readonly dupDelegate dup = dup_native;
+    public static readonly fdopenDelegate fdopen = fdopen_native;
+    public static readonly freadDelegate fread = fread_native;
+    public static readonly fwriteDelegate fwrite = fwrite_native;
+    public static readonly fcloseDelegate fclose = fclose_native;
+    public static readonly fflushDelegate fflush = fflush_native;
+    public static readonly isattyDelegate isatty = isatty_native;
 
     public static Stream CreateDuplicateStream(int fileDescriptor)
     {
