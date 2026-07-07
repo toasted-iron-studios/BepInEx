@@ -45,25 +45,23 @@ public static class SceneTreeHook
 
     /// <summary>
     /// Installs the engine hook. Called by the loader AFTER the game's runtime has initialized.
-    /// Prefers a self-cleaning Harmony postfix on the engine's per-frame managed callback; falls
-    /// back to a CallDeferred poll only if that method can't be resolved on this Godot version.
+    /// A self-cleaning Harmony postfix on the engine's per-frame managed callback.
     /// </summary>
     public static void Start()
     {
         if (_fired || _harmony != null) return;
 
         _target = AccessTools.Method(typeof(GodotTaskScheduler), "Activate");
-        if (_target != null)
+        if (_target == null)
         {
-            _harmony = new Harmony("bepinex.godot.scenetreehook");
-            _harmony.Patch(_target, postfix: new HarmonyMethod(
-                typeof(SceneTreeHook).GetMethod(nameof(OnFrame), BindingFlags.Static | BindingFlags.NonPublic)));
+            GD.PushWarning("[BepInEx.Godot] GodotTaskScheduler.Activate not found; " +
+                           "scene-tree callbacks are unavailable on this Godot build.");
+            return;
         }
-        else
-        {
-            // Unknown Godot build: method not found — poll the main loop instead.
-            PollForSceneTree();
-        }
+
+        _harmony = new Harmony("bepinex.godot.scenetreehook");
+        _harmony.Patch(_target, postfix: new HarmonyMethod(
+            typeof(SceneTreeHook).GetMethod(nameof(OnFrame), BindingFlags.Static | BindingFlags.NonPublic)));
     }
 
     // Harmony postfix on GodotTaskScheduler.Activate — runs on the main thread every frame.
@@ -85,16 +83,6 @@ public static class SceneTreeHook
         if (Engine.GetMainLoop() is not SceneTree) return; // defensive; FrameCallback runs post-tree
         _fired = true;
         Flush();
-    }
-
-    private static void PollForSceneTree()
-    {
-        void Attempt()
-        {
-            if (Engine.GetMainLoop() is SceneTree) { _fired = true; Flush(); }
-            else Callable.From(Attempt).CallDeferred();
-        }
-        Callable.From(Attempt).CallDeferred();
     }
 
     private static void Flush()
