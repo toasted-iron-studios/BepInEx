@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using MonoMod.Utils;
 
 namespace BepInEx.Unix;
 
@@ -20,40 +21,41 @@ internal static class UnixStreamHelper
 
     public delegate int isattyDelegate(int fd);
 
-    // MonoMod's DynDllImport was removed in MonoMod 25.x. On CoreCLR the runtime
-    // resolves the bare "libc" name to the platform C library (libc.so.6 on Linux,
-    // libSystem.dylib on macOS) via its own name mangling, so plain P/Invoke covers
-    // the same targets the old DynDllMapping list did.
-    private const string Libc = "libc";
+    public static dupDelegate dup;
+    public static fdopenDelegate fdopen;
+    public static freadDelegate fread;
+    public static fwriteDelegate fwrite;
+    public static fcloseDelegate fclose;
+    public static fflushDelegate fflush;
+    public static isattyDelegate isatty;
 
-    [DllImport(Libc, EntryPoint = "dup")]
-    private static extern int dup_native(int fd);
+    static UnixStreamHelper()
+    {
+        // Resolve libc via MonoMod's DynDll, trying each candidate name in turn.
+        var libc = OpenFirst("libc.so.6",               // Ubuntu glibc
+                             "libc",                    // Linux glibc
+                             "/usr/lib/libSystem.dylib" // OSX POSIX
+                             );
 
-    [DllImport(Libc, EntryPoint = "fdopen")]
-    private static extern IntPtr fdopen_native(int fd, string mode);
+        dup    = Bind<dupDelegate>(libc, "dup");
+        fdopen = Bind<fdopenDelegate>(libc, "fdopen");
+        fread  = Bind<freadDelegate>(libc, "fread");
+        fwrite = Bind<fwriteDelegate>(libc, "fwrite");
+        fclose = Bind<fcloseDelegate>(libc, "fclose");
+        fflush = Bind<fflushDelegate>(libc, "fflush");
+        isatty = Bind<isattyDelegate>(libc, "isatty");
+    }
 
-    [DllImport(Libc, EntryPoint = "fread")]
-    private static extern IntPtr fread_native(IntPtr ptr, IntPtr size, IntPtr nmemb, IntPtr stream);
+    private static IntPtr OpenFirst(params string[] names)
+    {
+        foreach (var name in names)
+            if (DynDll.TryOpenLibrary(name, out var handle))
+                return handle;
+        throw new DllNotFoundException($"Could not load libc (tried: {string.Join(", ", names)})");
+    }
 
-    [DllImport(Libc, EntryPoint = "fwrite")]
-    private static extern int fwrite_native(IntPtr ptr, IntPtr size, IntPtr nmemb, IntPtr stream);
-
-    [DllImport(Libc, EntryPoint = "fclose")]
-    private static extern int fclose_native(IntPtr stream);
-
-    [DllImport(Libc, EntryPoint = "fflush")]
-    private static extern int fflush_native(IntPtr stream);
-
-    [DllImport(Libc, EntryPoint = "isatty")]
-    private static extern int isatty_native(int fd);
-
-    public static readonly dupDelegate dup = dup_native;
-    public static readonly fdopenDelegate fdopen = fdopen_native;
-    public static readonly freadDelegate fread = fread_native;
-    public static readonly fwriteDelegate fwrite = fwrite_native;
-    public static readonly fcloseDelegate fclose = fclose_native;
-    public static readonly fflushDelegate fflush = fflush_native;
-    public static readonly isattyDelegate isatty = isatty_native;
+    private static T Bind<T>(IntPtr library, string symbol) where T : Delegate =>
+        (T) Marshal.GetDelegateForFunctionPointer(DynDll.GetExport(library, symbol), typeof(T));
 
     public static Stream CreateDuplicateStream(int fileDescriptor)
     {

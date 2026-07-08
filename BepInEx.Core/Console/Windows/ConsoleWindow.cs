@@ -125,10 +125,10 @@ internal class ConsoleWindow
 
         // Some games may ship user32.dll with some methods missing. As such, we load the DLL explicitly from system folder
         var user32Dll = LoadLibraryEx("user32.dll", IntPtr.Zero, LOAD_LIBRARY_SEARCH_SYSTEM32);
-        setForeground = Marshal.GetDelegateForFunctionPointer<SetForegroundWindowDelegate>(GetProcAddress(user32Dll, "SetForegroundWindow"));
-        getForeground = Marshal.GetDelegateForFunctionPointer<GetForegroundWindowDelegate>(GetProcAddress(user32Dll, "GetForegroundWindow"));
-        getSystemMenu = Marshal.GetDelegateForFunctionPointer<GetSystemMenuDelegate>(GetProcAddress(user32Dll, "GetSystemMenu"));
-        deleteMenu = Marshal.GetDelegateForFunctionPointer<DeleteMenuDelegate>(GetProcAddress(user32Dll, "DeleteMenu"));
+        setForeground = (SetForegroundWindowDelegate) Marshal.GetDelegateForFunctionPointer(GetProcAddress(user32Dll, "SetForegroundWindow"), typeof(SetForegroundWindowDelegate));
+        getForeground = (GetForegroundWindowDelegate) Marshal.GetDelegateForFunctionPointer(GetProcAddress(user32Dll, "GetForegroundWindow"), typeof(GetForegroundWindowDelegate));
+        getSystemMenu = (GetSystemMenuDelegate) Marshal.GetDelegateForFunctionPointer(GetProcAddress(user32Dll, "GetSystemMenu"), typeof(GetSystemMenuDelegate));
+        deleteMenu = (DeleteMenuDelegate) Marshal.GetDelegateForFunctionPointer(GetProcAddress(user32Dll, "DeleteMenu"), typeof(DeleteMenuDelegate));
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]

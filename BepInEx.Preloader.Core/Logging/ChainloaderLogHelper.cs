@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using BepInEx.Logging;
+using MonoMod.Utils;
 
 namespace BepInEx.Preloader.Core.Logging;
 
@@ -69,7 +69,7 @@ public static class ChainloaderLogHelper
 
         // Not sure what it does on Linux. I think it returns the kernel version there too, but we already get the utsname structure from SetPlatform() regardless
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (PlatformDetection.OS.Is(OSKind.Windows))
         {
             osVersion = PlatformUtils.WindowsVersion;
 
@@ -92,10 +92,10 @@ public static class ChainloaderLogHelper
             else if (osVersion.Major <= 5)
                 builder.Append("XP");
 
-            if (PlatformUtils.WineVersion != null)
+            if (PlatformDetection.OS.Is(OSKind.Wine))
                 builder.AppendFormat(" (Wine {0})", PlatformUtils.WineVersion);
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        else if (PlatformDetection.OS.Is(OSKind.OSX))
         {
             builder.Append("macOS ");
 
@@ -111,7 +111,7 @@ public static class ChainloaderLogHelper
                 builder.AppendFormat("Unknown (kernel {0})", osVersion);
             }
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else if (PlatformDetection.OS.Is(OSKind.Linux))
         {
             builder.Append("Linux");
 
@@ -121,11 +121,20 @@ public static class ChainloaderLogHelper
             }
         }
 
-        builder.Append(Environment.Is64BitOperatingSystem ? " 64-bit" : " 32-bit");
+        builder.Append(PlatformUtils.ProcessIs64Bit ? " 64-bit" : " 32-bit");
 
-        var arch = RuntimeInformation.OSArchitecture;
-        if (arch == Architecture.Arm || arch == Architecture.Arm64)
-            builder.Append(arch == Architecture.Arm64 ? " ARM64" : " ARM");
+        if (PlatformDetection.OS.Is(OSKind.Android))
+        {
+            builder.Append(" Android");
+        }
+
+        if ((PlatformDetection.Architecture == ArchitectureKind.Arm || PlatformDetection.Architecture == ArchitectureKind.Arm64))
+        {
+            builder.Append(" ARM");
+
+            if (PlatformUtils.ProcessIs64Bit)
+                builder.Append("64");
+        }
 
         return builder.ToString();
     }

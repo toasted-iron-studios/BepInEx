@@ -33,14 +33,15 @@ internal static class PlatformUtils
     private static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
 
     /// <summary>
-    ///     Populates the OS-version/architecture fields used by the startup log.
-    ///     Uses <see cref="RuntimeInformation" /> for platform detection (MonoMod's
-    ///     PlatformHelper/Platform enum was removed in MonoMod 25.x) and keeps the
-    ///     libc/RtlGetVersion calls to read detailed version strings.
+    ///     Populates the OS-version / kernel / Wine detail fields used for the runtime banner.
+    ///     OS and architecture classification itself comes from MonoMod's <see cref="PlatformDetection" />;
+    ///     this only fills in the extra strings MonoMod doesn't expose, using libc/ntdll calls.
     /// </summary>
     public static void SetPlatform()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        var os = PlatformDetection.OS;
+
+        if (os.Is(OSKind.Windows))
         {
             var windowsVersionInfo = new WindowsOSVersionInfoExW();
             RtlGetVersion(ref windowsVersionInfo);
@@ -60,18 +61,20 @@ internal static class PlatformUtils
                 }
             }
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        else if ((os.Is(OSKind.OSX) || os.Is(OSKind.Linux)) && Type.GetType("Mono.Runtime") != null)
         {
-            var utsnameOsx = new utsname_osx();
-            uname_osx(ref utsnameOsx);
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            var utsnameLinux = new utsname_linux();
-            if (uname_linux(ref utsnameLinux) == IntPtr.Zero)
+            if (os.Is(OSKind.OSX))
             {
-                LinuxArchitecture = utsnameLinux.machine;
-                LinuxKernelVersion = utsnameLinux.version;
+                var utsname_osx = new utsname_osx();
+                uname_osx(ref utsname_osx);
+            }
+            else
+            {
+                var utsname_linux = new utsname_linux();
+                uname_linux(ref utsname_linux);
+
+                LinuxArchitecture = utsname_linux.machine;
+                LinuxKernelVersion = utsname_linux.version;
             }
         }
     }
