@@ -1,11 +1,8 @@
 using System;
-using System.Linq;
 using System.Reflection;
-using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
-using MonoMod.Utils;
 
 namespace BepInEx.Unity.IL2CPP.Hook;
 
@@ -72,7 +69,7 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
             Prepare();
             // MonoMod 25 removed DetourHelper.GenerateNativeProxy. Emit an equivalent managed proxy that
             // calli's into the trampoline pointer, using the signature's native calling convention.
-            TrampolineMethod = GenerateNativeProxy(TrampolinePtr, (MethodInfo) signature);
+            TrampolineMethod = NativeProxyGenerator.GenerateNativeProxy(TrampolinePtr, (MethodInfo) signature);
         }
 
         return TrampolineMethod;
@@ -87,28 +84,6 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
         Prepare();
 
         return Marshal.GetDelegateForFunctionPointer<TDelegate>(TrampolinePtr);
-    }
-
-    private static MethodInfo GenerateNativeProxy(nint functionPtr, MethodInfo signature)
-    {
-        var returnType = signature.ReturnType;
-        var parameterTypes = signature.GetParameters().Select(p => p.ParameterType).ToArray();
-
-        var callingConvention = signature.DeclaringType?
-                                         .GetCustomAttribute<UnmanagedFunctionPointerAttribute>()?
-                                         .CallingConvention ?? CallingConvention.Cdecl;
-
-        using var dmd = new DynamicMethodDefinition($"NativeProxy<{signature.DeclaringType?.Name}>",
-                                                    returnType, parameterTypes);
-        var il = dmd.GetILGenerator();
-        for (var i = 0; i < parameterTypes.Length; i++)
-            il.Emit(OpCodes.Ldarg, i);
-        il.Emit(OpCodes.Ldc_I8, (long) functionPtr);
-        il.Emit(OpCodes.Conv_I);
-        il.EmitCalli(OpCodes.Calli, callingConvention, returnType, parameterTypes);
-        il.Emit(OpCodes.Ret);
-
-        return dmd.Generate();
     }
 
     protected abstract void ApplyImpl();
