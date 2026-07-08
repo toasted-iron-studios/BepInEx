@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using MonoMod.Utils;
 
 namespace BepInEx.Unix;
@@ -21,41 +21,41 @@ internal static class UnixStreamHelper
 
     public delegate int isattyDelegate(int fd);
 
-    [DynDllImport("libc")]
     public static dupDelegate dup;
-
-    [DynDllImport("libc")]
     public static fdopenDelegate fdopen;
-
-    [DynDllImport("libc")]
     public static freadDelegate fread;
-
-    [DynDllImport("libc")]
     public static fwriteDelegate fwrite;
-
-    [DynDllImport("libc")]
     public static fcloseDelegate fclose;
-
-    [DynDllImport("libc")]
     public static fflushDelegate fflush;
-
-    [DynDllImport("libc")]
     public static isattyDelegate isatty;
 
     static UnixStreamHelper()
     {
-        var libcMapping = new Dictionary<string, List<DynDllMapping>>
-        {
-            ["libc"] = new()
-            {
-                "libc.so.6",               // Ubuntu glibc
-                "libc",                    // Linux glibc
-                "/usr/lib/libSystem.dylib" // OSX POSIX
-            }
-        };
+        // Resolve libc via MonoMod's DynDll, trying each candidate name in turn.
+        var libc = OpenFirst("libc.so.6",               // Ubuntu glibc
+                             "libc",                    // Linux glibc
+                             "/usr/lib/libSystem.dylib" // OSX POSIX
+                             );
 
-        typeof(UnixStreamHelper).ResolveDynDllImports(libcMapping);
+        dup    = Bind<dupDelegate>(libc, "dup");
+        fdopen = Bind<fdopenDelegate>(libc, "fdopen");
+        fread  = Bind<freadDelegate>(libc, "fread");
+        fwrite = Bind<fwriteDelegate>(libc, "fwrite");
+        fclose = Bind<fcloseDelegate>(libc, "fclose");
+        fflush = Bind<fflushDelegate>(libc, "fflush");
+        isatty = Bind<isattyDelegate>(libc, "isatty");
     }
+
+    private static IntPtr OpenFirst(params string[] names)
+    {
+        foreach (var name in names)
+            if (DynDll.TryOpenLibrary(name, out var handle))
+                return handle;
+        throw new DllNotFoundException($"Could not load libc (tried: {string.Join(", ", names)})");
+    }
+
+    private static T Bind<T>(IntPtr library, string symbol) where T : Delegate =>
+        (T) Marshal.GetDelegateForFunctionPointer(DynDll.GetExport(library, symbol), typeof(T));
 
     public static Stream CreateDuplicateStream(int fileDescriptor)
     {

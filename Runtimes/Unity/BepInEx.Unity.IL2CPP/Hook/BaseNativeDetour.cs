@@ -1,8 +1,11 @@
 using System;
+using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using BepInEx.Logging;
 using MonoMod.RuntimeDetour;
+using MonoMod.Utils;
 
 namespace BepInEx.Unity.IL2CPP.Hook;
 
@@ -26,6 +29,10 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
     public nint TrampolinePtr { get; protected set; }
     public bool IsValid { get; private set; } = true;
     public bool IsApplied { get; private set; }
+
+    // MonoMod 25's IDetour carries a DetourConfig (ordering/priority for managed detours).
+    // These are bespoke native (Dobby/Funchook) detours that don't participate in that ordering.
+    public DetourConfig Config => null;
 
     public void Dispose()
     {
@@ -63,7 +70,9 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
         if (TrampolineMethod == null)
         {
             Prepare();
-            TrampolineMethod = DetourHelper.GenerateNativeProxy(TrampolinePtr, signature);
+            // MonoMod 25 removed DetourHelper.GenerateNativeProxy. Emit an equivalent managed proxy that
+            // calli's into the trampoline pointer, using the signature's native calling convention.
+            TrampolineMethod = GenerateNativeProxy(TrampolinePtr, (MethodInfo) signature);
         }
 
         return TrampolineMethod;
@@ -74,9 +83,32 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
         if (!typeof(Delegate).IsAssignableFrom(typeof(TDelegate)))
             throw new InvalidOperationException($"Type {typeof(TDelegate)} not a delegate type.");
 
-        _ = GenerateTrampoline(typeof(TDelegate).GetMethod("Invoke"));
+        // The delegate trampoline only needs the prepared pointer; no managed proxy method required.
+        Prepare();
 
         return Marshal.GetDelegateForFunctionPointer<TDelegate>(TrampolinePtr);
+    }
+
+    private static MethodInfo GenerateNativeProxy(nint functionPtr, MethodInfo signature)
+    {
+        var returnType = signature.ReturnType;
+        var parameterTypes = signature.GetParameters().Select(p => p.ParameterType).ToArray();
+
+        var callingConvention = signature.DeclaringType?
+                                         .GetCustomAttribute<UnmanagedFunctionPointerAttribute>()?
+                                         .CallingConvention ?? CallingConvention.Cdecl;
+
+        using var dmd = new DynamicMethodDefinition($"NativeProxy<{signature.DeclaringType?.Name}>",
+                                                    returnType, parameterTypes);
+        var il = dmd.GetILGenerator();
+        for (var i = 0; i < parameterTypes.Length; i++)
+            il.Emit(OpCodes.Ldarg, i);
+        il.Emit(OpCodes.Ldc_I8, (long) functionPtr);
+        il.Emit(OpCodes.Conv_I);
+        il.EmitCalli(OpCodes.Calli, callingConvention, returnType, parameterTypes);
+        il.Emit(OpCodes.Ret);
+
+        return dmd.Generate();
     }
 
     protected abstract void ApplyImpl();
