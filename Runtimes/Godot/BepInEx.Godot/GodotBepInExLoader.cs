@@ -83,14 +83,16 @@ public static class GodotBepInExLoader
     /// </summary>
     public static void SchedulePostBoot()
     {
-        var hook = Type.GetType("BepInEx.Godot.SceneTreeHook, BepInEx.Godot.Lifecycle");
-        if (hook == null)
+        // Lifecycle registers this when a plugin first uses the scene-tree API (see
+        // GodotLifecycleBridge). Null = no plugin needs scene-tree callbacks (patch-only install).
+        var startPump = GodotLifecycleBridge.StartSceneTreePump;
+        if (startPump == null)
         {
-            _log.LogInfo("Lifecycle assembly not installed; scene-tree callbacks disabled (patch-only).");
+            _log.LogInfo("No plugin uses the scene-tree API; post-boot scheduling skipped (patch-only).");
             return;
         }
 
-        hook.GetMethod("Start").Invoke(null, null);
+        startPump();
         _log.LogInfo("Watching for SceneTree; plugin WhenReady callbacks will fire once it exists.");
     }
 }

@@ -19,8 +19,10 @@
       <HintPath>$(GodotSharpDll)</HintPath>
       <Private>false</Private>
     </Reference>
-    <!-- HarmonyX at runtime resolves to the single 0Harmony.dll in BepInEx/core (Private=false),
-         so the scene-tree hook shares the same Harmony as the loader and plugins. -->
-    <PackageReference Include="HarmonyX" Version="2.16.1" Private="false" />
+    <!-- Typed hand-off from the preloader (GodotLifecycleBridge). The preloader ships in
+         BepInEx/core and is resolved there at runtime, so it is not copied alongside this
+         assembly (Private=false). The scene-tree hook uses GodotSharp's own frame pump, so it
+         needs no Harmony reference of its own. -->
+    <ProjectReference Include="../BepInEx.Godot/BepInEx.Godot.csproj" Private="false" />
   </ItemGroup>
 </Project>

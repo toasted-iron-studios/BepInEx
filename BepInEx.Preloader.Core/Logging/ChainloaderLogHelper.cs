@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using BepInEx.Logging;
+using MonoMod.Utils;
 
 namespace BepInEx.Preloader.Core.Logging;
 
@@ -69,7 +69,7 @@ public static class ChainloaderLogHelper
 
         // Not sure what it does on Linux. I think it returns the kernel version there too, but we already get the utsname structure from SetPlatform() regardless
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (PlatformHelper.Is(Platform.Windows))
         {
             osVersion = PlatformUtils.WindowsVersion;
 
@@ -92,10 +92,10 @@ public static class ChainloaderLogHelper
             else if (osVersion.Major <= 5)
                 builder.Append("XP");
 
-            if (PlatformUtils.WineVersion != null)
+            if (PlatformHelper.Is(Platform.Wine))
                 builder.AppendFormat(" (Wine {0})", PlatformUtils.WineVersion);
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        else if (PlatformHelper.Is(Platform.MacOS))
         {
             builder.Append("macOS ");
 
@@ -111,7 +111,7 @@ public static class ChainloaderLogHelper
                 builder.AppendFormat("Unknown (kernel {0})", osVersion);
             }
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else if (PlatformHelper.Is(Platform.Linux))
         {
             builder.Append("Linux");
 
@@ -121,11 +121,20 @@ public static class ChainloaderLogHelper
             }
         }
 
-        builder.Append(Environment.Is64BitOperatingSystem ? " 64-bit" : " 32-bit");
+        builder.Append(PlatformHelper.Is(Platform.Bits64) ? " 64-bit" : " 32-bit");
 
-        var arch = RuntimeInformation.OSArchitecture;
-        if (arch == Architecture.Arm || arch == Architecture.Arm64)
-            builder.Append(arch == Architecture.Arm64 ? " ARM64" : " ARM");
+        if (PlatformHelper.Is(Platform.Android))
+        {
+            builder.Append(" Android");
+        }
+
+        if (PlatformHelper.Is(Platform.ARM))
+        {
+            builder.Append(" ARM");
+
+            if (PlatformHelper.Is(Platform.Bits64))
+                builder.Append("64");
+        }
 
         return builder.ToString();
     }

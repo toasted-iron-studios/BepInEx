@@ -125,10 +125,10 @@ internal class ConsoleWindow
 
         // Some games may ship user32.dll with some methods missing. As such, we load the DLL explicitly from system folder
         var user32Dll = LoadLibraryEx("user32.dll", IntPtr.Zero, LOAD_LIBRARY_SEARCH_SYSTEM32);
-        setForeground = Marshal.GetDelegateForFunctionPointer<SetForegroundWindowDelegate>(GetProcAddress(user32Dll, "SetForegroundWindow"));
-        getForeground = Marshal.GetDelegateForFunctionPointer<GetForegroundWindowDelegate>(GetProcAddress(user32Dll, "GetForegroundWindow"));
-        getSystemMenu = Marshal.GetDelegateForFunctionPointer<GetSystemMenuDelegate>(GetProcAddress(user32Dll, "GetSystemMenu"));
-        deleteMenu = Marshal.GetDelegateForFunctionPointer<DeleteMenuDelegate>(GetProcAddress(user32Dll, "DeleteMenu"));
+        setForeground = GetProcAddress(user32Dll, "SetForegroundWindow").AsDelegate<SetForegroundWindowDelegate>();
+        getForeground = GetProcAddress(user32Dll, "GetForegroundWindow").AsDelegate<GetForegroundWindowDelegate>();
+        getSystemMenu = GetProcAddress(user32Dll, "GetSystemMenu").AsDelegate<GetSystemMenuDelegate>();
+        deleteMenu = GetProcAddress(user32Dll, "DeleteMenu").AsDelegate<DeleteMenuDelegate>();
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]
