@@ -1,0 +1,6 @@
+dist/
+**/bin/
+**/obj/
+**/.godot/
+# GodotSharp.dll is the engine-version-specific binding, provided at build time (GODOTSHARP_DLL)
+BepInEx.Godot.Lifecycle/GodotSharp.dll
