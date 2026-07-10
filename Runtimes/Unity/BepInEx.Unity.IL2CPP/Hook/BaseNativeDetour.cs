@@ -27,6 +27,10 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
     public bool IsValid { get; private set; } = true;
     public bool IsApplied { get; private set; }
 
+    // MonoMod 25's IDetour carries a DetourConfig (ordering/priority for managed detours).
+    // These are bespoke native (Dobby/Funchook) detours that don't participate in that ordering.
+    public DetourConfig Config => null;
+
     public void Dispose()
     {
         if (!IsValid) return;
@@ -63,7 +67,9 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
         if (TrampolineMethod == null)
         {
             Prepare();
-            TrampolineMethod = DetourHelper.GenerateNativeProxy(TrampolinePtr, signature);
+            // MonoMod 25 removed DetourHelper.GenerateNativeProxy. Emit an equivalent managed proxy that
+            // calli's into the trampoline pointer, using the signature's native calling convention.
+            TrampolineMethod = NativeProxyGenerator.GenerateNativeProxy(TrampolinePtr, (MethodInfo) signature);
         }
 
         return TrampolineMethod;
@@ -74,7 +80,8 @@ internal abstract class BaseNativeDetour<T> : INativeDetour where T : BaseNative
         if (!typeof(Delegate).IsAssignableFrom(typeof(TDelegate)))
             throw new InvalidOperationException($"Type {typeof(TDelegate)} not a delegate type.");
 
-        _ = GenerateTrampoline(typeof(TDelegate).GetMethod("Invoke"));
+        // The delegate trampoline only needs the prepared pointer; no managed proxy method required.
+        Prepare();
 
         return Marshal.GetDelegateForFunctionPointer<TDelegate>(TrampolinePtr);
     }

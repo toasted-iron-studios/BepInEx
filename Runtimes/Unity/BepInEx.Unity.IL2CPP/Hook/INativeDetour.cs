@@ -21,6 +21,12 @@ public interface INativeDetour : IDetour
     public nint DetourMethodPtr { get; }
     public nint TrampolinePtr { get; }
 
+    // MonoMod 25 slimmed IDetour down to Apply/Undo/IsValid/IsApplied/Config. The trampoline-generation
+    // and Free members these native detours rely on used to be inherited from IDetour; re-declare them here.
+    void Free();
+    MethodBase GenerateTrampoline(MethodBase signature = null);
+    TDelegate GenerateTrampoline<TDelegate>() where TDelegate : Delegate;
+
     private static INativeDetour CreateDefault<T>(nint original, T target) where T : Delegate =>
         // TODO: check and provide an OS accurate provider
         new DobbyDetour(original, target);
@@ -33,7 +39,7 @@ public interface INativeDetour : IDetour
             DetourProvider.Funchook => new FunchookDetour(original, target),
             _                       => CreateDefault(original, target)
         };
-        if (!ReflectionHelper.IsMono)
+        if (PlatformDetection.Runtime != RuntimeKind.Mono)
         {
             return new CacheDetourWrapper(detour, target);
         }
@@ -88,6 +94,8 @@ public interface INativeDetour : IDetour
         public bool IsValid => _wrapped.IsValid;
 
         public bool IsApplied => _wrapped.IsApplied;
+
+        public DetourConfig Config => _wrapped.Config;
 
         public nint OriginalMethodPtr => _wrapped.OriginalMethodPtr;
 
